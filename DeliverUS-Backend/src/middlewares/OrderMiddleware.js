@@ -77,4 +77,46 @@ const checkOrderCanBeDelivered = async (req, res, next) => {
   }
 }
 
-export { checkOrderOwnership, checkOrderCustomer, checkOrderVisible, checkOrderIsPending, checkOrderCanBeSent, checkOrderCanBeDelivered, checkRestaurantExists }
+// TODO: Middlewares de control de tiempo límite y estado válido para deshacerse
+const checkDate = (fecha) => {
+  const diff = Math.abs(new Date() - fecha) // diferencia en milisegundos
+  return ((diff / 60000) <= 5)
+}
+
+const checkOrderCanBeForwarded = async (req, res, next) => {
+  try {
+    const order = await Order.findByPk(req.params.orderId)
+    const status = order.status
+    if (status !== 'delivered') {
+      return next()
+    } else {
+      return res.status(409).send('The order is already delivered')
+    }
+  } catch (err) {
+    return res.status(500).send(err.message)
+  }
+}
+
+const checkOrderCanBeBackwarded = async (req, res, next) => {
+  try {
+    const order = await Order.findByPk(req.params.orderId)
+    switch (order.status) {
+      case 'in process':
+        if (!checkDate(order.startedAt)) { return res.status(409).send('The order cannot be backwarded after 5 minutes') }
+        break
+      case 'sent':
+        if (!checkDate(order.sentAt)) { return res.status(409).send('The order cannot be backwarded after 5 minutes') }
+        break
+      case 'delivered':
+        if (!checkDate(order.deliveredAt)) { return res.status(409).send('The order cannot be backwarded after 5 minutes') }
+        break
+      default:
+        return res.status(409).send('The order is already pending')
+    }
+    return next()
+  } catch (err) {
+    return res.status(500).send(err.message)
+  }
+}
+
+export { checkOrderIsPending, checkOrderCanBeSent, checkOrderCanBeDelivered, checkOrderOwnership, checkOrderCustomer, checkOrderVisible, checkRestaurantExists, checkOrderCanBeForwarded, checkOrderCanBeBackwarded }

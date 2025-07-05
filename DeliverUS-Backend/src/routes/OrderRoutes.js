@@ -44,6 +44,26 @@ const loadFileRoutes = function (app) {
       checkEntityExists(Order, 'orderId'),
       OrderMiddleware.checkOrderVisible,
       OrderController.show)
+
+  // TODO: [Octubre 2024]
+
+  app.route('/orders/:orderId/forward')
+    .patch(
+      isLoggedIn,
+      hasRole('owner'),
+      checkEntityExists(Order, 'orderId'),
+      OrderMiddleware.checkOrderOwnership,
+      OrderMiddleware.checkOrderCanBeForwarded,
+      OrderController.forwardOrder)
+
+  app.route('/orders/:orderId/backward')
+    .patch(
+      isLoggedIn,
+      hasRole('owner'),
+      checkEntityExists(Order, 'orderId'),
+      OrderMiddleware.checkOrderOwnership,
+      OrderMiddleware.checkOrderCanBeBackwarded,
+      OrderController.backwardOrder)
 }
 
 export default loadFileRoutes
