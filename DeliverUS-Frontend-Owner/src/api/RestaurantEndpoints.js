@@ -23,4 +23,8 @@ function remove (id) {
   return destroy(`restaurants/${id}`)
 }
 
-export { getAll, getDetail, getRestaurantCategories, create, update, remove }
+function getOrders (id) {
+  return get(`restaurants/${id}/orders`) // Basándonos en la ruta de RestaurantRoutes
+}
+
+export { getAll, getDetail, getRestaurantCategories, create, update, remove, getOrders }

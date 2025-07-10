@@ -65,6 +65,7 @@ const generateFilterWhereClauses = function (req) {
 }
 
 // Returns :restaurantId orders
+// TODO: [Octubre 2024]
 const indexRestaurant = async function (req, res) {
   const whereClauses = generateFilterWhereClauses(req)
   whereClauses.push({
@@ -73,10 +74,18 @@ const indexRestaurant = async function (req, res) {
   try {
     const orders = await Order.findAll({
       where: whereClauses,
-      include: {
+      include: [{
         model: Product,
         as: 'products'
+      }, {
+        model: User,
+        as: 'user'
       }
+      ],
+      order: [['deliveredAt', 'ASC'],
+        ['sentAt', 'ASC'],
+        ['startedAt', 'ASC'],
+        ['createdAt', 'ASC']]
     })
     res.json(orders)
   } catch (err) {
@@ -121,6 +130,70 @@ const destroy = async function (req, res) {
   res.status(500).send('This function is to be implemented')
 }
 
+// TODO: [Octubre 2024]
+const forwardOrder = async function (req, res) {
+  const transaction = await sequelizeSession.transaction()
+  try {
+    const order = await Order.findByPk(req.params.orderId, { transaction, lock: true })
+    if (order.status) {
+      switch (order.status) {
+        case 'pending': // Pasa a in process
+          order.startedAt = new Date()
+          order.sentAt = null
+          order.deliveredAt = null
+          break
+        case 'in process': // Pasa a sent
+          order.sentAt = new Date()
+          order.deliveredAt = null
+          break
+        case 'sent':{ // Pasa a delivered
+          order.deliveredAt = new Date()
+          break
+        }
+        case 'delivered':
+          throw new Error('Cannot forward a delivered order')
+      }
+    }
+    const updatedOrder = await order.save({ transaction })
+    await transaction.commit()
+    res.json(updatedOrder)
+  } catch (err) {
+    await transaction.rollback()
+    res.status(500).send(err)
+  }
+}
+// TODO: [Octubre 2024]
+const backwardOrder = async function (req, res) {
+  const transaction = await sequelizeSession.transaction()
+  try {
+    const order = await Order.findByPk(req.params.orderId, { transaction, lock: true })
+    if (order.status) {
+      switch (order.status) {
+        case 'in process': // Pasa a pending
+          order.startedAt = null
+          order.sentAt = null
+          order.deliveredAt = null
+          break
+        case 'sent': // Pasa a in process
+          order.sentAt = null
+          order.deliveredAt = null
+          break
+        case 'delivered':{ // Pasa a sent
+          order.deliveredAt = null
+          break
+        }
+        case 'pending': // No se puede retroceder más de pending
+          throw new Error('Cannot backward a pending order')
+      }
+    }
+    const updatedOrder = await order.save({ transaction })
+    await transaction.commit()
+    res.json(updatedOrder)
+  } catch (err) {
+    await transaction.rollback()
+    res.status(500).send(err)
+  }
+}
 const confirm = async function (req, res) {
   try {
     const order = await Order.findByPk(req.params.orderId)
@@ -241,6 +314,8 @@ const OrderController = {
   send,
   deliver,
   show,
-  analytics
+  analytics,
+  forwardOrder,
+  backwardOrder
 }
 export default OrderController
