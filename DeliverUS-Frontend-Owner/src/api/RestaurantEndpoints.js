@@ -22,5 +22,10 @@ function update (id, data) {
 function remove (id) {
   return destroy(`restaurants/${id}`)
 }
+// Solución
 
-export { getAll, getDetail, getRestaurantCategories, create, update, remove }
+function getOrders (id) {
+  return get(`restaurants/${id}/orders`)
+}
+
+export { getAll, getDetail, getRestaurantCategories, create, update, remove, getOrders }
